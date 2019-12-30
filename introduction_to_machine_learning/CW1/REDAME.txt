@@ -1,0 +1,140 @@
+tree_lib README
+---------------
+
+
+CONTENTS OF THIS FILE
+---------------------
+   
+ * Introduction
+ * Requirements
+ * Usage
+ * Examples
+
+INTRODUCTION
+------------
+
+This is a README documentation on how to run the submitted code. All the executables have been organised in to the file tree_lib.py. tree_lib is a python library that trains and evaluates decision trees based on the input datasets.
+
+REQRUIREMENTS
+-------------
+
+This module requires the following modules:
+
+ * Numpy
+ * Matplotlib
+
+To use the module, please make sure that the tree_lib.py file is in the same directory as the python project, then import tree_;ib, numpy ad matplotlib.
+
+USAGE
+-----
+
+To train and evaluate a single decision tree:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ * Start by loading in the datasets:
+	
+	clean_dataset = np.loadtxt('clean_dataset.txt')
+	noisy_dataset = np.loadtxt('noisy_dataset.txt')
+
+ * Select and shuffle (optional) the dataset, then split into train, validation and test set:
+
+        dataset = noisy_dataset
+        np.random.shuffle(dataset)
+
+        train = dataset[:1000]
+        val = dataset[1000:1500]
+	test = dataset[1500:]
+
+ * Instantiate a Learner object, the Learner class organises the functions that train manipulate and evaluate the decision trees:
+
+	lr = tl.Learner(train,test,val)
+
+	* Validation set optional, however you will get a warning if you don't provide one.
+
+ * Training the decision tree:
+	
+	lr.learn(verbose=True)
+	
+	* The verbose flag is default to False, log messages will be printed if set to True.
+
+ * Visualising the decision tree:
+
+	lr.display_tree(max_depth=6)
+
+	* The parameter max_depth indicates where to stop for plotting. If max_depth is set on 	more than 6, the last Nodes may be superposed.
+
+ * Evaluation of the model, the confusion matrix, classification rate, F1, precision and recall can be contained by calling the respective methods:
+
+	lr.confusion_matrix()  # displays the confusion matrix in text form
+	lr.show_confusion_matrix()  # displays the confusion matrix using matplotlib
+	lr.class_rate()  # prints the classification rate
+	lr.F1()  # prints the F1 values for the four classes respectively as an array
+	lr.recall()  # prints the recall values for the four classes respectively as an array
+    	lr.precision()  # prints the precision values for the four classes respectively as an array
+
+ * Evaluation can also be done more conveniently by calling the evaluate() method, which returns respectively the confusion matrix, the classification accuracy, the precision (for each class), the recall (for each class) and the F1 score (for each class) in this order:
+
+	lr.evaluate()
+
+ * Pruning of the decision tree is triggered by the pruning() method, if a validation set is not provided, the test set will be used to evaluate the intermediate accuracy in the pruning process, and may cause biased results, a validation set is highly recommended:
+
+	lr.pruning()
+
+	* After pruning, evaluation can be done by calling the above described methods again.
+
+
+
+Prediction using the trained model:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ * Start by importing the test sample to be predicted (optional):
+
+	new_data = []
+
+ * The predictions and its true label (if provided) will be returned by the predict() method:
+
+	preds, labels = lr.predict()
+	preds, _ = lr.predict(new_data)
+
+	* If new_data is not provided and no argument is provided, the predict method will predict for the given test set, and return its prediction and the corresponding true label
+
+
+
+Cross validation:
+~~~~~~~~~~~~~~~~~
+
+ * There is no need a Learner object for cross validation, but instead is executed by calling the function from tree_lib.
+
+ * The function cross_validation takes as input the whole dataset that will be used, the value of k, a boolean indicating wether or not we prune our trees, and a boolean indicating wether we want to display the averaged confusion matrix or not.
+
+ * It returns the (averaged) confusion matrix, classification accuracy, precision, recall, F1 score and the mean and standard deviation of the tree depth
+
+	import tree_lib as tl
+
+	tl.cross_validation(noisy_dataset, 10, False, True)
+
+	# cross_validation(dataset, k=10, prune=False, show_matrix=False, verbose=True):
+
+
+Examples
+--------
+
+Along with the the tree_lib.py file, this README document, a document containing example usage of the library and a testing.py script has also been submitted.
+
+The testing.py script simply contains a function (and calls it) that organises the evaluation output into a more readable format, the script is runnable without the need of any changes. The following data will be output by the script:
+
+ * Noisy - Cross validated
+ * Clean - Cross validated
+ * Noisy - Pruned - Cross validated
+ * Clean - Pruned - Cross validated
+	
+Please note that the cross validation and pruning process can take a couple minutes.
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,85 @@
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.axes3d import Axes3D
+import numpy as np
+from scipy.stats import uniform
+from scipy.stats import norm
+from scipy.stats import multivariate_normal
+
+mean = [-1, 1]
+marginal_var = [2, 0.5]
+N = 100
+
+x1 = np.random.uniform(-(np.sqrt(marginal_var[0]*12)/2)-1, (np.sqrt(marginal_var[0]*12)/2)-1, N)
+x2 = np.random.normal(1, np.sqrt(marginal_var[1]), N)
+
+x_1, y_1 = np.mgrid[-5+mean[0]:5+mean[0]:200j, -3*np.sqrt(marginal_var[1])+mean[1]:3*np.sqrt(marginal_var[1])+mean[1]:200j]
+
+dx, dy = 10/200, 6*np.sqrt(marginal_var[1])/200
+
+uniform = uniform(-(np.sqrt(24)/2)-1, np.sqrt(24))
+gaussian = norm(1, np.sqrt(0.5))
+
+p1 = np.matmul(uniform.pdf(x_1), gaussian.pdf(y_1)) * dx * dy
+
+###############################################################
+
+cov = [[2, 0.5], [0.5, 0.5]]
+
+y1, y2 = np.random.multivariate_normal(mean, cov, N).T
+
+# generate a mesh-grid for evaluating the pdf
+x_2, y_2 = np.mgrid[-3*np.sqrt(cov[0][0])+mean[0]:3*np.sqrt(cov[0][0])+mean[0]:.1, -3*np.sqrt(cov[1][1])+mean[1]:3*np.sqrt(cov[1][1])+mean[1]:.1]
+# stack x-y coordinates
+pos = np.dstack((x_2, y_2))
+
+# generate Gaussian object
+gaussian = multivariate_normal(mean, cov)
+
+p2 = gaussian.pdf(pos)
+
+# plot the the contour on top of the samples
+xx = [mean[0]+2*np.sqrt(cov[0][0]), 0]
+
+################################################################
+
+data_points1 = np.dstack((x1, x2))
+print(data_points1)
+
+fig1 = plt.figure(1, figsize=(14, 5))
+ax1_1 = fig1.add_subplot(1, 2, 1)
+
+ax1_1.scatter(x1, x2)
+ax1_1.contour(x_1, y_1, p1, 5, linewidths=1)
+
+ax1_2 = fig1.add_subplot(1, 2, 2, projection='3d')
+ax1_2.plot_wireframe(x_1, y_1, p1, color="grey", rstride=4, cstride=4, alpha=0.5)
+cset1 = ax1_2.contour(x_1, y_1, p1, zdir='z', offset=-0.004,  alpha=0.6, linewidths=1)
+ax1_2.set_zlim3d(-0.004, p1.max())
+ax1_2.set_xlabel('$x1$')
+ax1_2.set_ylabel('$x2$')
+ax1_2.set_zlabel('$p(x1,x2)$')
+
+################################################################
+
+data_points2 = np.dstack((y1, y2))
+print(data_points2)
+
+
+fig2 = plt.figure(2, figsize=(14, 5))
+ax2_1 = fig2.add_subplot(1, 2, 1)
+
+ax2_1.scatter(y1, y2)
+ax2_1.contour(x_2, y_2, p2, 10, linewidths=1)
+
+
+ax2_2 = fig2.add_subplot(1, 2, 2, projection='3d')
+ax2_2.plot_wireframe(x_2, y_2, p2, color="grey", rstride=4, cstride=4, alpha=0.5)
+cset2 = ax2_2.contour(x_2, y_2, p2, zdir='z', offset=-0.04,  alpha=0.6, linewidths=1)
+ax2_2.set_zlim3d(-0.04, gaussian.pdf(mean))
+ax2_2.set_xlabel('$x1$')
+ax2_2.set_ylabel('$x2$')
+ax2_2.set_zlabel('$p(x1,x2)$')
+
+plt.show()
+
+

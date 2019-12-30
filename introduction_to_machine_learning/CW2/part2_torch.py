@@ -1,0 +1,266 @@
+import sys
+
+import numpy as np
+np.set_printoptions(threshold=sys.maxsize)
+import pandas as pd
+import torch
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import auc, roc_curve, accuracy_score, confusion_matrix
+from sklearn.utils import class_weight
+from sklearn.preprocessing import StandardScaler
+from sklearn.utils import resample
+from sklearn.utils import shuffle
+import matplotlib.pyplot as plt
+
+import pickle
+
+class Network(torch.nn.Module):
+
+    def __init__(self, dimensions):
+        super(Network, self).__init__()
+        self.layers = torch.nn.ModuleList([torch.nn.Linear(dimensions[i], dimensions[i+1]) for i in range(len(dimensions) - 1)])
+
+    def forward(self, input):
+        out = torch.nn.functional.relu(self.layers[0](input))
+        for layer in self.layers[1:-1]:
+            out = torch.nn.functional.relu(layer(out))
+        return torch.sigmoid(self.layers[-1](out))
+
+
+class ClaimClassifier:
+    def __init__(self, calibrate_probabilities=False):
+        """
+        Feel free to alter this as you wish, adding instance variables as
+        necessary.
+        """
+        # Hyper-parameters
+        self.lr = 0.00015
+        self.n_epochs = 50
+        self.batch_size = 10
+
+        self.calibrate = calibrate_probabilities
+        self.removed_indices = None
+
+        # Neural network
+        self.model = Network([9, 7, 7, 1])
+        self.optimiser = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+
+        self.loss = torch.nn.BCELoss()
+
+    def _preprocessor(self, X_raw, drop_na=False):
+        """Data preprocessing function.
+
+        This function prepares the features of the data for training,
+        evaluation, and prediction.
+
+        Parameters
+        ----------
+        X_raw : numpy.ndarray (NOTE, IF WE CAN USE PANDAS HERE IT WOULD BE GREAT)
+            A numpy array, this is the raw data as downloaded
+
+        Returns
+        -------
+        X: numpy.ndarray (NOTE, IF WE CAN USE PANDAS HERE IT WOULD BE GREAT)
+            A clean data set that is used for training and prediction.
+        """
+        # YOUR CODE HERE
+
+        full_features = ['drv_age1', 'vh_age', 'vh_cyl', 'vh_din', 'pol_bonus', 'vh_sale_begin', 'vh_sale_end', 'vh_value', 'vh_speed']
+
+        data = pd.DataFrame(X_raw, columns=full_features)
+
+        # Normalising data here
+        ss = StandardScaler()
+        data = pd.DataFrame(ss.fit_transform(data), columns=full_features)
+
+        # if drop_na:
+        # # Removing rows having any NA value and remembering the lines when dropped
+        #     self.removed_indices = data.isna().any(axis=1).values
+        #     data.dropna(inplace=True)
+        # else:
+        #     # replace NA by the mean of the column
+        #     data.fillna(data.mean(), inplace=True)
+
+        return data.values.astype(np.float32)
+
+    def fit(self, X_raw, y_raw):
+        """Classifier training function.
+
+        Here you will implement the training function for your classifier.
+
+        Parameters
+        ----------
+        X_raw : numpy.ndarray
+            A numpy array, this is the raw data as downloaded
+        y_raw : numpy.ndarray (optional)
+            A one dimensional numpy array, this is the binary target variable
+
+        Returns
+        -------
+        ?
+        """
+
+        # REMEMBER TO HAVE THE FOLLOWING LINE SOMEWHERE IN THE CODE
+        # X_clean = self._preprocessor(X_raw)
+        # YOUR CODE HERE
+        # pass
+
+        X_clean = torch.tensor(self._preprocessor(X_raw))
+        Y_clean = torch.tensor(y_raw).unsqueeze(1)
+
+
+        for epoch in range(self.n_epochs):
+
+            print('Training ... Epoch {}'.format(epoch))
+
+            # X is a torch Variable
+            permutation = torch.randperm(X_clean.size()[0])
+
+            for i in range(0, X_clean.size()[0], self.batch_size):
+                self.optimiser.zero_grad()
+
+                indices = permutation[i:i + self.batch_size]
+                batch_x, batch_y = X_clean[indices], Y_clean[indices]
+
+                # in case you wanted a semi-full example
+                outputs = self.model.forward(batch_x)
+                loss = self.loss(outputs, batch_y)
+
+                loss.backward()
+                self.optimiser.step()
+
+
+            print('Current Loss = {}'.format(loss.item()))
+
+
+    def predict(self, X_raw):
+        """Classifier probability prediction function.
+
+        Here you will implement the predict function for your classifier.
+
+        Parameters
+        ----------
+        X_raw : numpy.ndarray
+            A numpy array, this is the raw data as downloaded
+
+        Returns
+        -------
+        numpy.ndarray
+            A one dimensional array of the same length as the input with
+            values corresponding to the probability of beloning to the
+            POSITIVE class (that had accidents)
+        """
+
+        # REMEMBER TO HAVE THE FOLLOWING LINE SOMEWHERE IN THE CODE
+        # X_clean = self._preprocessor(X_raw)
+
+        # YOUR CODE HERE
+
+        X_clean = torch.tensor(self._preprocessor(X_raw))
+
+        outputs = self.model.forward(X_clean)
+
+        return outputs.detach().numpy()
+
+    def evaluate_architecture(self, Y_test, Y_predict):
+        """Architecture evaluation utility.
+
+        Populate this function with evaluation utilities for your
+        neural network.
+
+        You can use external libraries such as scikit-learn for this
+        if necessary.
+        """
+
+        predictions = [round(value) for value in Y_predict.flatten()]
+        con_mat = confusion_matrix(Y_test, predictions)
+        print(con_mat)
+
+        fpr, tpr, thresholds = roc_curve(Y_test, Y_predict)
+        plt.plot(fpr, tpr, lw=1, alpha=0.3, label ='ROC (AUC = %0.2f)' % auc(fpr, tpr))
+        plt.legend(loc='best')
+        plt.show()
+        return
+
+    def save_model(self):
+        with open("part2_claim_classifier.pickle", "wb") as target:
+            pickle.dump(self, target)
+
+
+def ClaimClassifierHyperParameterSearch():  # ENSURE TO ADD IN WHATEVER INPUTS YOU DEEM NECESSARRY TO THIS FUNCTION
+    """Performs a hyper-parameter for fine-tuning the classifier.
+
+    Implement a function that performs a hyper-parameter search for your
+    architecture as implemented in the ClaimClassifier class.
+
+    The function should return your optimised hyper-parameters.
+    """
+
+    return  # Return the chosen hyper parameters
+
+
+# only upsampling training data, and not testing data, so im not using train_test_split
+
+data = pd.DataFrame(pd.read_csv('part2_data.csv'))
+data = shuffle(data)
+
+train_split_ind = int(round(data.shape[0] * 0.9))
+
+train_data = data.iloc[:train_split_ind, :]
+test_data = data.iloc[train_split_ind:, :]
+
+data_majority = train_data[train_data.made_claim == 0]
+data_minority = train_data[train_data.made_claim == 1]
+data_minority_upsampled = resample(data_minority, replace=True, n_samples=data_majority.shape[0], random_state=123)
+train_data = pd.concat([data_majority, data_minority_upsampled])
+
+train_data = train_data.values
+test_data = test_data.values
+
+train_X = train_data[:, :9].astype(np.float32)
+train_Y = train_data[:, -1].astype(np.float32)
+
+test_X = test_data[:, :9].astype(np.float32)
+test_Y = test_data[:, -1].astype(np.float32)
+
+
+
+# print(data)
+
+# print(Y)
+
+# X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.10, random_state=23)
+
+
+classifier = ClaimClassifier()
+
+
+classifier.fit(train_X, train_Y)
+
+pred_Y = classifier.predict(test_X)
+
+
+# For all the true positives, I calculate the average network output that results in the true classification
+# ------------------------------------------------------------
+num_0 = 0
+num_1 = 0
+total_0 = 0
+total_1 = 0
+for i in range(pred_Y.shape[0]):
+    if round(pred_Y[i][0]) == test_Y[i]:
+        if test_Y[i] == 0:
+            total_0 += pred_Y[i]
+            num_0 += 1
+        elif test_Y[i] == 1:
+            total_1 += pred_Y[i]
+            num_1 += 1
+
+    print(pred_Y[i], test_Y[i])
+
+print('Avg 0 = {}'.format(total_0/num_0))
+print('Avg 1 = {}'.format(total_1/num_1))
+# ------------------------------------------------------------
+
+classifier.evaluate_architecture(test_Y, pred_Y)
+
+print(sum(Y_train),len(Y_train))
